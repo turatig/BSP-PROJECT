@@ -1,0 +1,10 @@
+__pycache__
+data/
+doc/
+*.swp
+*.swo
+*.swj
+*.swl
+*.swk
+*.swm
+*.swn
