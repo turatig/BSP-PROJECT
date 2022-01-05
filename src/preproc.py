@@ -34,6 +34,9 @@ def labeledRr(rrSeries,q1,q3,bpml=30,bpmh=180):
 
     return [ (rr,f1(rr) and f2(rr)) for rr in rrSeries ]
 
+#filter artifacts/non-artifacts from a labeled rr series vector
+def filterLabeledRr(rr,non_artifact=True):
+    return [rr[0] for rr in rr if rr[1]==non_artifact]
 
 #compute vector magnitude for triaxial accelerometers signal and filter it with bandpass in 0.25Hz-3Hz
 def filterVm(acc,fs):
@@ -69,7 +72,7 @@ def iterEpochs(record,dur=30,max_iter=None,verb=False):
     q1,q3=np.quantile(rr,0.25),np.quantile(rr,0.75)
     labeled_rr=labeledRr(rr,q1,q3)
     
-    filtrr=[rr[0] for rr in labeled_rr if rr[1]]
+    filtrr=filterLabeledRr(labeled_rr,non_artifact=True)
     m,std=np.mean(filtrr),np.std(filtrr)
     
     vmw=filterVm(record.accWrist,record.fsAcc)
@@ -83,20 +86,17 @@ def iterEpochs(record,dur=30,max_iter=None,verb=False):
         print("*"*20+" SIGNAL PREPROCESSING COMPLETED "+"*"*20)
         print("Number of epoches labeled: {0}".format(len(record.sleepStaging)))
     
-    #check that the number of epochs found is coherent with sleep staging scores
-    assert len(epoch_idx)==len(record.sleepStaging)
-
     
     #for every epoch
     for i in range(len(epoch_idx)):
 
-        #non artifacts/artifacts
-        na=[rr[0] for rr in labeled_rr[ epoch_idx[i][0]:epoch_idx[i][1] ] if rr[1]]
-        a= [rr[0] for rr in labeled_rr[ epoch_idx[i][0]:epoch_idx[i][1] ] if not rr[1]]
+        epoch_rr=labeled_rr[ epoch_idx[i][0]:epoch_idx[i][1] ]
+        na=filterLabeledRr(epoch_rr,non_artifact=True)
+        a=filterLabeledRr(epoch_rr,non_artifact=False)
 
 
         #if epoch has an acceptable sleep staging score and has less of 50% artifacts in rr series yield it
-        if record.sleepStaging[i]<6 and len(na) and len(a)/len(na)<0.5:
+        if record.sleepStaging[i]<6 and len(epoch_rr) and len(a)/len(epoch_rr)<0.5:
 
             yield Epoch(dur,record.fsEdf,record.fsAcc,\
                     na, m,std,q1,q3,\

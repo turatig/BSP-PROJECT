@@ -36,7 +36,7 @@ def rmssd(rr):
 #power spectral density estimation through autoregressive model of order 9
 def psd(rr,order=9,n=1024):
     
-    rho,sigma=yule_walker(rr,9,'mle')
+    rho,sigma=yule_walker(rr,order,'mle')
     rho*=-1
 
     return sigma**2/np.abs(freqz(1,np.concatenate([[1],rho]),n,whole=True)[1])**2
