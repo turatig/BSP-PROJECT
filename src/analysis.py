@@ -10,6 +10,24 @@ from random import randint
 from statsmodels.tsa.ar_model import AutoReg
 from scipy.signal import freqz
 
+def plotData(e,rec_count,epoch):    
+    label="sleep" if e.label else "wake"
+    fig=plot.plotEpoch(e,"Record {0} Epoch {1}\nLabel: {2}".format(rec_count,epoch,label))
+    fig.show()
+
+    rho,sigma=feat.getArModel(e.rr)
+    psd=feat.arPsd(rho,sigma)
+
+    fig2=plot.plotPSD(psd,1/(np.mean(e.rr)/1000),\
+            "Record {0} Epoch {1}\nLabel: {2}".format(rec_count,epoch,label))
+    fig2.show()
+
+    fig3,(ax1,ax2)=plt.subplots(2)
+    plot.plotVMTime(ax1,e.vmw,"Vector magnitude wrist",e.fsacc)
+    plot.plotVMTime(ax2,e.vmc,"Vector magnitude chest",e.fsacc)
+    
+    fig3.show()
+
 #plot preprocessed epochs of records in a dataset selecting with probability p 
 def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake"):
     rec_count=0
@@ -24,13 +42,7 @@ def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake"):
         epoch=0
         sleep,wake,totl=0,0,0
         
-        """rr=pre.rrSeries(r.rPeaks,r.fsAcc)[:1024]
-        p=feat.psd(rr,order=150)
-
-        fs=1/(np.mean(rr)/1000)
-        fig=plot.plotPSD(p,fs,"PSD of the 1024 samples of the entire series",rr)
-        fig.show()
-        input()"""
+        
         for e in pre.iterEpochs(r,verb=False):
 
 
@@ -40,26 +52,8 @@ def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake"):
             
             if lab==e.label and plotted<max_per_rec and randint(0,100)/100<p:
                 plotted+=1
-                label="sleep" if e.label else "wake"
-                fig=plot.plotEpoch(e,"Record {0} Epoch {1}\nLabel: {2}".format(rec_count,epoch,label))
-                fig.show()
-                fig2=plot.plotPSD(feat.psd(e.rr),1/(np.mean(e.rr)/1000),\
-                        "Record {0} Epoch {1}\nLabel: {2}".format(rec_count,epoch,label))
-                fig2.show()
-
-                fig3,(ax1,ax2)=plt.subplots(2)
-                plot.plotVMTime(ax1,e.vmw,"Vector magnitude wrist",e.fsacc)
-                plot.plotVMTime(ax2,e.vmc,"Vector magnitude chest",e.fsacc)
-                
-                print(e.vmw.shape)
-                fig3.show()
-                datap=feat.extract(e)
-                #print(datap)
+                plotData(e,rec_count,epoch)
                 input()
-            try: 
-                assert not np.isnan(np.sum(feat.psd(e.rr)))
-            except AssertionError as e:
-                print("Record {0} epoch {1} has nan".format(count,epoch))
 
             epoch+=1
 
