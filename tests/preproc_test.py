@@ -24,7 +24,8 @@ class PreprocTest(unittest.TestCase):
     #Feature under test: rpSplitEpoch
     def test_coherent_split_epoch(self):
         for r in rec.iterRecords("data/anonymized/"):
-            epoch_idx=pre.rpSplitEpoch(r.rPeaksRaw,r.tIndexSleep)
-            self.assertEqual(len(epoch_idx),len(r.sleepStaging))
+            rr=pre.rrSeries(r.rPeaksRaw,r.fsEdf)
+            epochs=pre.rpSplitEpoch(rr,r.rPeaksRaw,r.tIndexSleep)
+            self.assertEqual(len(epochs),len(r.sleepStaging))
 
     

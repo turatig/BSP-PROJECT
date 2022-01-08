@@ -2,11 +2,10 @@ import numpy as np
 from scipy.signal import butter,filtfilt
 
 #preprocessed epoch.
-#q1: first quartile of the entire rr series from which epoch was extracted
-#q3: third quartile of the entire rr series from which epoch was extracted
-#vmv: filtered vector magnitude wrist
-#vmc: filterd vector magnitude chest
-#label: 0(wake)/1(sleep)
+#q1: first quartile of rr series
+#q3: third quartile of rr series
+#vm(w/c): vector magnitude (wrist/chest)
+#label: 0(wake)/1(sleep). N.B: Nrem1 collapse on wake
 class Epoch():
     def __init__(self,dur,fsecg,fsacc,rr,mean,std,q1,q3,vmw,vmc,label):
         self.dur=dur
@@ -45,28 +44,25 @@ def filterVm(acc,fs):
     
     return filtfilt(b,a,vm)
 
-#return list of split points of an epoch for r peaks position list (rp)
+#return list of 3 of rr epochs.
 #t_idx: time index sleep list (start of every 30 sec epoch scored)
-def rpSplitEpoch(rp,t_idx):
+def rpSplitEpoch(rr,rp,t_idx):
     last,count=0,0
-    epoch_idx=list()
+    epochs=list()
      
     for i in range(len(t_idx)-1):
         while count<len(rp) and rp[count]>=t_idx[i] and rp[count]<t_idx[i+1]: count+=1
 
-        epoch_idx.append((last,count))
+        epochs.append(rr[last:count])
         last=count
     
-    epoch_idx.append( (last,len(rp)) )
-    return epoch_idx
+    epochs.append( rr[last:len(rp)] )
+
+    return epochs
 
 #iter preprocessed epochs dur seconds long of the given record
 def iterEpochs(record,dur=30,max_iter=None,verb=False):
 
-    acc_step = dur*record.fsAcc
-    acc_samp = 0
-
-    count,yielded=0,0
     
     rr=rrSeries(record.rPeaksRaw,record.fsEdf)
     q1,q3=np.quantile(rr,0.25),np.quantile(rr,0.75)
@@ -79,8 +75,6 @@ def iterEpochs(record,dur=30,max_iter=None,verb=False):
     vmc=filterVm(record.accChest,record.fsAcc)
 
 
-    epoch_idx=rpSplitEpoch(record.rPeaksRaw,record.tIndexSleep)
-    
     if verb:
         print("Mean RR: {0}".format(m))
         print("*"*20+" SIGNAL PREPROCESSING COMPLETED "+"*"*20)
@@ -88,19 +82,20 @@ def iterEpochs(record,dur=30,max_iter=None,verb=False):
     
     
     #for every epoch
-    for i in range(len(epoch_idx)):
+    acc_step = dur*record.fsAcc
+    count,acc_samp,yielded=0,0,0
+    for e_rr in rpSplitEpoch(labeled_rr,record.rPeaksRaw,record.tIndexSleep):
 
-        epoch_rr=labeled_rr[ epoch_idx[i][0]:epoch_idx[i][1] ]
-        na=filterLabeledRr(epoch_rr,non_artifact=True)
-        a=filterLabeledRr(epoch_rr,non_artifact=False)
+        na=filterLabeledRr(e_rr,non_artifact=True)
+        a=filterLabeledRr(e_rr,non_artifact=False)
 
 
         #if epoch has an acceptable sleep staging score and has less of 50% artifacts in rr series yield it
-        if record.sleepStaging[i]<6 and len(epoch_rr) and len(a)/len(epoch_rr)<0.5:
+        if record.sleepStaging[count]<6 and len(e_rr) and len(a)/len(e_rr)<0.5:
 
             yield Epoch(dur,record.fsEdf,record.fsAcc,\
                     na, m,std,q1,q3,\
-                    vmw[acc_samp:acc_samp+acc_step],vmc[acc_samp:acc_samp+acc_step],int(record.sleepStaging[i]!=0))
+                        vmw[acc_samp:acc_samp+acc_step],vmc[acc_samp:acc_samp+acc_step],int(record.sleepStaging[count]<2))
             yielded+=1
         
         count+=1
