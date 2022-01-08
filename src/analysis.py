@@ -53,6 +53,7 @@ def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake"):
             if lab==e.label and plotted<max_per_rec and randint(0,100)/100<p:
                 plotted+=1
                 plotData(e,rec_count,epoch)
+                print(feat.DataPoint(e))
                 input()
 
             epoch+=1

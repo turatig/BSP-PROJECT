@@ -44,7 +44,7 @@ def filterVm(acc,fs):
     
     return filtfilt(b,a,vm)
 
-#return list of 3 of rr epochs.
+#return list of rr epochs.
 #t_idx: time index sleep list (start of every 30 sec epoch scored)
 def rpSplitEpoch(rr,rp,t_idx):
     last,count=0,0
@@ -95,7 +95,7 @@ def iterEpochs(record,dur=30,max_iter=None,verb=False):
 
             yield Epoch(dur,record.fsEdf,record.fsAcc,\
                     na, m,std,q1,q3,\
-                        vmw[acc_samp:acc_samp+acc_step],vmc[acc_samp:acc_samp+acc_step],int(record.sleepStaging[count]<2))
+                        vmw[acc_samp:acc_samp+acc_step],vmc[acc_samp:acc_samp+acc_step],int(record.sleepStaging[count]>2))
             yielded+=1
         
         count+=1

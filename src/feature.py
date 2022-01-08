@@ -7,31 +7,6 @@ from scipy.stats import percentileofscore
 from pyentrp.entropy import sample_entropy
 from functools import reduce
 
-#representation of an epoch as a point in feature space
-class DataPoint():
-
-    def __init__(self,meanrr,stdrr,rmssdrr,lfhf,sent,pa,scalexp):
-        self.meanrr=meanrr
-        self.stdrr=stdrr
-        self.rmssdrr=rmssdrr
-        self.lfhf=lfhf
-        self.sent=sent
-        self.pa=pa
-        self.scalexp=scalexp
-
-    def __str__(self):
-        fmt="\n\nEpoch features\n\n"+"\n\n"
-        div="-"*20+"\n"
-        fmt+=div+"Mean RR: {0} \n".format(self.meanrr)+div
-        fmt+="Std RR: {0}\n".format(self.stdrr)+div
-        fmt+="Rmssd RR: {0}\n".format(self.rmssdrr)+div
-        fmt+="Lf/Hf RR: {0}\n".format(self.lfhf)+div
-        fmt+="Sample entropy RR [m=1,r=0.2*std(rr)]: {0}\n".format(self.sent)+div
-        fmt+="Probability agreement: {0}".format(self.pa)+div
-        fmt+="Scaling exponent RR: {0}\n".format(self.scalexp)+div
-
-        return fmt
-
 #root mean of squared successive differences
 def rmssd(rr):
     return np.sqrt( 1/(len(rr)-1)*sum([ (rr[i+1]-rr[i])**2 for i in range(len(rr)-1)]) )
@@ -98,22 +73,6 @@ def dfaExp(rr,min_scale=4,max_scale=12):
 
     return scalexp
 
-def extractRrFeatures(e):
-    
-    meanrr,stdrr,rmssdrr=rrStatistics(e)
-
-    #power spectral density feature
-    rho,sigma=getArModel(e.rr)
-    spectrum=arPsd(rho,sigma)
-    lfhf=lhRatio(spectrum,1/(np.mean(e.rr)/1000))
-
-    #self-similarity features
-    sent=sample_entropy(e.rr,1,0.2*np.std(e.rr))
-    dfa=dfaExp(e.rr)
-    pa=probAgreement(rho,sigma,n=len(e.rr))
-    
-    return meanrr,stdrr,rmssd,lfhf,sent,dfa
-
 #threshold-crossing rate of signal vm
 def tcr(vm,th=0):
     count=0
@@ -129,9 +88,73 @@ def tcr(vm,th=0):
     
     return count 
 
-def extractAccFeatures(vm):
-    return tcr(vm,0.0052),np.mean(vm),np.std(vm),max(vm)
 
-def extract(e):
-    pass
+#representation of an epoch as a point in feature space
+class DataPoint():
+
+    def __init__(self,e):
+        self.extractRrFeatures(e)
+        self.extractAccFeatures(e)
+
+    def extractRrFeatures(self,e):
+        
+        self.meanrr,self.stdrr,self.rmssdrr=rrStatistics(e)
+    
+        #power spectral density feature
+        rho,sigma=getArModel(e.rr)
+        spectrum=arPsd(rho,sigma)
+
+        self.lfhf=lhRatio(spectrum,1/(np.mean(e.rr)/1000))
+    
+        #self-similarity features
+        self.sent=sample_entropy(e.rr,1,0.2*np.std(e.rr))
+        self.scalexp=dfaExp(e.rr)
+        self.pa=probAgreement(rho,sigma,self.sent,n=len(e.rr))
+    
+
+    def extractAccFeatures(self,e):
+        self.vmc_tcr=tcr(e.vmc,0.0052)
+        self.vmc_mean=np.mean(e.vmc)
+        self.vmc_std=np.std(e.vmc)
+        self.vmc_max=max(e.vmc)
+
+        self.vmw_tcr=tcr(e.vmw,0.0052)
+        self.vmw_mean=np.mean(e.vmw)
+        self.vmw_std=np.std(e.vmw)
+        self.vmw_max=max(e.vmw)
+
+    def rrRepr(self):
+        return [self.meanrr,self.stdrr,self.rmssdrr,self.sent,self.pa,self.scalexp]
+
+    def chestRepr(self):
+        return [self.vmc_tcr,self.vmc_mean,self.vmc_std,self.vmc_max]
+
+    def wristRepr(self):
+        return [self.vmw_tcr,self.vmw_mean,self.vmw_std,self.vmw_max]
+
+    def __str__(self):
+        div="-"*20+"\n"
+
+        fmt="\n\nRR FEATURES\n\n"+div
+        fmt+="Mean: {0} \n".format(self.meanrr)+div
+        fmt+="Std: {0}\n".format(self.stdrr)+div
+        fmt+="Rmssd: {0}\n".format(self.rmssdrr)+div
+        fmt+="Lf/Hf: {0}\n".format(self.lfhf)+div
+        fmt+="Sample entropy [m=1,r=0.2*std(rr)]: {0}\n".format(self.sent)+div
+        fmt+="Probability agreement: {0}\n".format(self.pa)+div
+        fmt+="Scaling exponent: {0}\n".format(self.scalexp)+div
+
+        fmt+="\n\nACCELEROMETER CHEST FEATURES\n\n"+div
+        fmt+="Zero-crossing rate: {0}\n".format(self.vmc_tcr)+div
+        fmt+="Mean: {0}\n".format(self.vmc_mean)+div
+        fmt+="Std: {0}\n".format(self.vmc_std)+div
+        fmt+="Max: {0}\n".format(self.vmc_max)+div
+
+        fmt+="\n\nACCELEROMETER WRIST FEATURES\n\n"+div
+        fmt+="Zero-crossing rate: {0}\n".format(self.vmw_tcr)+div
+        fmt+="Mean: {0}\n".format(self.vmw_mean)+div
+        fmt+="Std: {0}\n".format(self.vmw_std)+div
+        fmt+="Max: {0}\n".format(self.vmw_max)+div
+
+        return fmt
 
