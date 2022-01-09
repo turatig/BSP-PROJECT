@@ -9,6 +9,7 @@ class Record():
     #record: file name of .mat file
     def __init__(self,record):
         self._wrapped=loadmat(record,squeeze_me=True,struct_as_record=False)['dataRaw']
+        self.filename=record
 
     #easyest way to retriev fields of the wrapped matlab struct
     def __getattr__(self,attr):

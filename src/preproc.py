@@ -6,8 +6,9 @@ from scipy.signal import butter,filtfilt
 #q3: third quartile of rr series
 #vm(w/c): vector magnitude (wrist/chest)
 #label: 0(wake)/1(sleep). N.B: Nrem1 collapse on wake
+#rid/rfilename: id of the epoch and filename
 class Epoch():
-    def __init__(self,dur,fsecg,fsacc,rr,mean,std,q1,q3,vmw,vmc,label):
+    def __init__(self,dur,fsecg,fsacc,rr,mean,std,q1,q3,vmw,vmc,label,rid,rfilename):
         self.dur=dur
         self.fsecg=fsecg
         self.fsacc=fsacc
@@ -19,7 +20,11 @@ class Epoch():
         self.vmw=np.array(vmw)
         self.vmc=np.array(vmc)
         self.label=label
+        self.rid=rid
+        self.rfilename=rfilename
 
+    def __str__(self):
+        return "Epoch {0} from record {1}".format(self.rid,self.rfilename)
 
 #compute rr series in ms from r peaks postion list
 def rrSeries(rPeaks,fs,start=0):
@@ -92,15 +97,61 @@ def iterEpochs(record,dur=30,max_iter=None,verb=False):
 
         #if epoch has an acceptable sleep staging score and has less of 50% artifacts in rr series yield it
         if record.sleepStaging[count]<6 and len(e_rr) and len(a)/len(e_rr)<0.5:
-
+            
+            yielded+=1
             yield Epoch(dur,record.fsEdf,record.fsAcc,\
                     na, m,std,q1,q3,\
-                        vmw[acc_samp:acc_samp+acc_step],vmc[acc_samp:acc_samp+acc_step],int(record.sleepStaging[count]>2))
-            yielded+=1
-        
-        count+=1
+                        vmw[acc_samp:acc_samp+acc_step],vmc[acc_samp:acc_samp+acc_step],\
+                                int(record.sleepStaging[count]>2),count,record.filename)
+            
+            if not max_iter is None and yielded>=max_iter: break
+
         acc_samp+=acc_step
+        count+=1
+        if verb:
+            print("Yielded {0} of {1} epochs".format(yielded,count))
 
-    if verb:
-        print("Yielded {0} of {1} epochs".format(yielded,count))
 
+def fuseEpochs(epochs):
+    
+    if not len(epochs): return None
+
+    rr,vmc,vmw=[],[],[]
+    dur=0
+
+    for e in epochs:
+        rr=np.concatenate([rr,e.rr])
+        vmc=np.concatenate([vmc,e.vmc])
+        vmw=np.concatenate([vmw,e.vmw])
+        dur+=e.dur
+
+    e=epochs[len(epochs)//2]
+    return Epoch(dur,e.fsecg,e.fsacc,\
+            rr,e.mean,e.std,e.q1,e.q3,\
+            vmw,vmc,e.label,e.rid,e.rfilename)
+
+
+#fuse even around of epochs
+def iterFusedEpochs(record,fused=0,dur=30,max_iter=None,verb=False):
+    
+    buf=[]
+    #around of an epoch must be even
+    fused-=fused%2
+    yielded=0
+
+    for epoch in iterEpochs(record,dur):
+        buf.append(epoch)
+        
+        if len(buf)>=fused+1:
+            
+            fe=fuseEpochs(buf[:fused+1])
+            buf=buf[1:]
+            yielded+=1
+
+            if verb:
+                print("Yielded {0} epochs. Fused {1} - {2} with {3}".format(yielded,fe.rid,fe.filename,fused))
+
+            yield fe
+            if not max_iter is None and yielded>=max_iter: break
+
+    

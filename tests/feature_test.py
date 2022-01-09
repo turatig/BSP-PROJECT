@@ -2,7 +2,7 @@ import unittest
 import sys
 import numpy as np
 
-sys.path.append('../src')
+sys.path.append('..')
 
 import src.feature as feat
 from statsmodels.regression.linear_model import yule_walker 
