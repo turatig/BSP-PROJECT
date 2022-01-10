@@ -95,6 +95,7 @@ class DataPoint():
     def __init__(self,e):
         self.extractRrFeatures(e)
         self.extractAccFeatures(e)
+        self.label=e.label
 
     def extractRrFeatures(self,e):
         
