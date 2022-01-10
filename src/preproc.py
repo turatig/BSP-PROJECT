@@ -154,4 +154,4 @@ def iterFusedEpochs(record,fused=0,dur=30,max_iter=None,verb=False):
             yield fe
             if not max_iter is None and yielded>=max_iter: break
 
-    
+

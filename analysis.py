@@ -1,13 +1,12 @@
-import records as rec
+import src.records as rec
+import src.preproc as pre
+import src.plot as plot
+import src.feature as feat
 import sys
-import preproc as pre
-import  plot as plot
-import feature as feat
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import periodogram
+from scipy.signal import welch,periodogram
 from random import randint
-from statsmodels.tsa.ar_model import AutoReg
 from scipy.signal import freqz
 
 def plotData(e,rec_count,epoch):    
@@ -15,11 +14,15 @@ def plotData(e,rec_count,epoch):
     fig=plot.plotEpoch(e,"Record {0} Epoch {1}\nLabel: {2}".format(rec_count,epoch,label))
     fig.show()
 
-    rho,sigma=feat.getArModel(e.rr)
-    psd=feat.arPsd(rho,sigma)
+    rho,sigma=feat.getArModel(e.rr,order=9)
+    psd=feat.arPsd(rho,sigma,n=1024)
+    if len(e.rr)>32: per=welch(e.rr,nperseg=len(e.rr)//8,nfft=1024,return_onesided=False)[1]
+    else: per=periodogram(e.rr,nfft=1024,return_onesided=False)[1]
+    psd=np.concatenate([psd[:len(psd)//2][::-1],psd[len(psd)//2:][::-1]])
+
 
     fig2=plot.plotPSD(psd,1/(np.mean(e.rr)/1000),\
-            "Record {0} Epoch {1}\nLabel: {2}".format(rec_count,epoch,label))
+            "Record {0} Epoch {1}\nLabel: {2}".format(rec_count,e.rid,label),per=per)
     fig2.show()
 
     fig3,(ax1,ax2)=plt.subplots(2)
@@ -29,12 +32,14 @@ def plotData(e,rec_count,epoch):
     fig3.show()
 
 #plot preprocessed epochs of records in a dataset selecting with probability p 
-def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake"):
+def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake",fused=0):
     rec_count=0
     _sleep,_wake,_totl=0,0,0
     lab=0 if lab=="wake" else 1
+    count=0
     
     for r in rec.iterRecords(data_dir):
+        
         print("Analyzing record number {0}".format(rec_count))
         print(r.fmtTime(fmt="hh"))
 
@@ -43,7 +48,7 @@ def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake"):
         sleep,wake,totl=0,0,0
         
         
-        for e in pre.iterEpochs(r,verb=False):
+        for e in pre.iterFusedEpochs(r,fused,verb=False):
 
 
             if not e.label:wake+=1
@@ -76,5 +81,9 @@ def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake"):
 
 
 if __name__=="__main__":
-    inspectDatasetEpochs(sys.argv[1],float(sys.argv[2]),int(sys.argv[3]),sys.argv[4])
+
+    if len(sys.argv)<6:
+        print("Usage: --python analysis.py dataset_dir random_sampling_prob max_epoch_per_record label epoch_fused")
+    else:
+        inspectDatasetEpochs(sys.argv[1],float(sys.argv[2]),int(sys.argv[3]),sys.argv[4],int(sys.argv[5]))
 
