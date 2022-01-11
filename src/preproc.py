@@ -25,25 +25,26 @@ class Epoch():
         self.label=label
         self.rid=rid
         self.rfilename=rfilename
+    
+    def fuse(self,ep1,ep2,rr_only=True):
+
+        self.rr=np.concatenate([ep1.rr,ep2.rr])
+        if not rr_only:
+            self.vmc=np.concatenate([ep1.vmc,ep2.vmc])
+            self.vmw=np.concatenate([ep1.vmw,ep2.vmw])
+
+        self.dur=ep1.dur+ep2.dur
 
     def fuseLeft(self,epochs,rr_only=True):
         if epochs:
             for e in epochs[::-1]:
-                self.rr=np.concatenate([e.rr,self.rr])
-                if not rr_only:
-                    self.vmc=np.concatenate([e.vmc,self.vmc])
-                    self.vmw=np.concatenate([e.vmw,self.vmw])
-                self.dur+=e.dur
+                self.fuse(e,self)
     
     def fuseRight(self,epochs,rr_only=True):
         if epochs:
             for e in epochs:
-                self.rr=np.concatenate([self.rr,e.rr])
-                if not rr_only:
-                    self.vmc=np.concatenate([self.vmc,e.vmc])
-                    self.vmw=np.concatenate([self.vmw,e.vmw])
-                self.dur+=e.dur
-
+                self.fuse(self,e)
+                
     def copy(self):
         return Epoch(self.dur,self.fsecg,self.fsacc,self.rr,self.mean,\
                 self.std,self.q1,self.q3,self.vmw,self.vmc,self.label,self.rid,self.rfilename)
@@ -89,6 +90,17 @@ def rpSplitEpoch(rr,rp,t_idx):
     epochs.append( rr[last:len(rp)] )
 
     return epochs
+
+def fuseEpochs(epochs):
+    fuse=len(epochs)
+    cep=epochs[fuse//2].copy()
+
+    if fuse>1:
+        cep.fuseLeft(epochs[:fuse//2 ])
+        cep.fuseRight(epochs[ (fuse//2)+1:])
+                
+    return cep
+
 
 #iter preprocessed epochs 30 seconds long of the given record
 #fuse: number of subsequent epochs to fuse (half left,half right -- will be converted to an even number). 
@@ -136,15 +148,9 @@ def iterEpochs(record,max_iter=None,fuse=0,verb=False):
             buf.append(ep)
 
             if len(buf)>=fuse+1:
-
-                cep=buf[fuse//2].copy()
-
-                if fuse>0:
-                    cep.fuseLeft(buf[:fuse//2])
-                    cep.fuseRight(buf[(fuse//2)+1:])
                 
-                yield cep
-                
+                yield fuseEpochs(buf)
+                                
                 buf=buf[1:]
                 yielded+=1
                 if not max_iter is None and yielded>=max_iter: break
