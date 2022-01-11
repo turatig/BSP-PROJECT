@@ -26,7 +26,8 @@ def getArModel(rr,order=9):
 
 #power spectral density estimation through autoregressive model of order 9
 def arPsd(rho,sigma,n=1024):
-    return sigma**2/np.abs(freqz(1,np.concatenate([[1],rho]),n,whole=True)[1])**2
+    spectrum=sigma**2/np.abs(freqz(1,np.concatenate([[1],rho]),n,whole=True)[1])**2
+    return np.concatenate([ spectrum[:len(spectrum)//2][::-1] , spectrum[len(spectrum)//2:][::-1] ])
 
 #compute low frequency/ high frequency ratio of rr series psd
 def lhRatio(spectrum,fs):
@@ -44,7 +45,7 @@ def lhRatio(spectrum,fs):
     return lf/hf
 
 #rho,sigma: ar model params
-#generate syntethic rr series by filtering wgn through ar model.
+#generate syntethic sample entropy distribution of rr series by filtering wgn through ar model.
 def simulateArSent(rho,sigma,n=1024,simulations=200):
     entropy_distr=[]
 
@@ -80,8 +81,7 @@ def tcr(vm,th=0):
     if vm[0]<th: count-=1
     
     for val in vm:
-        if count%2 and val>th: 
-            count+=1
+        if count%2 and val>th: count+=1
         if not count%2 and val<th: count+=1
 
     if vm[0]<th: count+=1

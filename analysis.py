@@ -16,9 +16,9 @@ def plotData(e,rec_count,epoch):
 
     rho,sigma=feat.getArModel(e.rr,order=9)
     psd=feat.arPsd(rho,sigma,n=1024)
+
     if len(e.rr)>32: per=welch(e.rr,nperseg=len(e.rr)//8,nfft=1024,return_onesided=False)[1]
     else: per=periodogram(e.rr,nfft=1024,return_onesided=False)[1]
-    psd=np.concatenate([psd[:len(psd)//2][::-1],psd[len(psd)//2:][::-1]])
 
 
     fig2=plot.plotPSD(psd,1/(np.mean(e.rr)/1000),\
@@ -32,7 +32,7 @@ def plotData(e,rec_count,epoch):
     fig3.show()
 
 #plot preprocessed epochs of records in a dataset selecting with probability p 
-def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake",fused=0):
+def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake",dur=30,fuse=0):
     rec_count=0
     _sleep,_wake,_totl=0,0,0
     lab=0 if lab=="wake" else 1
@@ -48,7 +48,7 @@ def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake",fused=0):
         sleep,wake,totl=0,0,0
         
         
-        for e in pre.iterFusedEpochs(r,fused,verb=False):
+        for e in pre.iterEpochs(r,fuse=fuse,verb=False):
 
 
             if not e.label:wake+=1
@@ -82,8 +82,26 @@ def inspectDatasetEpochs(data_dir,p=0.05,max_per_rec=10,lab="wake",fused=0):
 
 if __name__=="__main__":
 
-    if len(sys.argv)<6:
-        print("Usage: --python analysis.py dataset_dir random_sampling_prob max_epoch_per_record label epoch_fused")
-    else:
-        inspectDatasetEpochs(sys.argv[1],float(sys.argv[2]),int(sys.argv[3]),sys.argv[4],int(sys.argv[5]))
+    data_dir="data/anonymized"
+
+    #Random sampling probability 
+    rs_prob=1
+    max_per_rec=10
+    label="sleep"
+    fuse=0
+    dur=30
+
+    i=1
+
+    while i<len(sys.argv):
+        if sys.argv[i]=="--data_dir": data_dir=sys.argv[i+1]
+        elif sys.argv[i]=="--rs_prob": rs_prob=int(sys.argv[i+1])
+        elif sys.argv[i]=="--max_per_rec": max_per_rec=int(sys.argv[i+1])
+        elif sys.argv[i]=="--label": label=sys.argv[i+1]
+        elif sys.argv[i]=="--fuse": fuse=int(sys.argv[i+1])
+
+        i+=2
+
+    inspectDatasetEpochs(data_dir,rs_prob,max_per_rec,label,fuse)
+
 

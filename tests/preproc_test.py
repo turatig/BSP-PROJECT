@@ -30,30 +30,66 @@ class EpochsTest(unittest.TestCase):
         self.r=rec.Record("data/anonymized/record_0.mat")
 
     #Feature under test: rpSplitEpoch
-    def test_coherent_split_epoch(self):
+    def test_coherent_split(self):
         rr=pre.rrSeries(self.r.rPeaksRaw,self.r.fsEdf)
         epochs=pre.rpSplitEpoch(rr,self.r.rPeaksRaw,self.r.tIndexSleep)
         self.assertEqual(len(epochs),len(self.r.sleepStaging))
 
+    def test_iter_epochs(self):
+        epochs=[]
+        n=random.randint(0,500)
+
+        for e in pre.iterEpochs(self.r,max_iter=n): epochs.append(e)
+
+        self.assertEqual(len(epochs),n)
+
+        for e in epochs:
+            self.assertEqual(e.dur,30)
+            self.assertEqual(len(e.vmw),30*e.fsacc)
+            self.assertTrue((sum(e.rr)-e.rr[0])/1000<=30)
+
+
     def test_fuse_epochs(self):
         epochs=[]
+        n=random.randint(2,20)
+        n+=1-(n%2)
 
-        for e in pre.iterEpochs(self.r,max_iter=5): epochs.append(e)
+        for e in pre.iterEpochs(self.r,max_iter=n): epochs.append(e)
         
-        fused=pre.fuseEpochs(epochs)
-        self.assertEqual(fused.dur,30*5)
-        self.assertEqual(list(reduce(lambda i,j: np.concatenate([i,j]),[e.rr for e in epochs])),list(fused.rr))
-        self.assertEqual(fused.rid,epochs[len(epochs)//2].rid)
+        epochs[n//2].fuseLeft(epochs[:n//2])
+        epochs[n//2].fuseRight(epochs[(n//2)+1:])
+
+        self.assertEqual(epochs[n//2].dur,30*n)
+        tested=list(reduce(lambda i,j: np.concatenate([i,j]),[e.rr for e in epochs]))
+
+        for i in range(n):
+            self.assertEqual(epochs[n//2].rr[i],tested[i])
     
     def test_iter_fuse_epochs(self):
         fep,ep=[],[]
-        fused=random.randint(0,20)
-        fused-=fused%2
+        fuse=random.randint(0,20)
+        fuse-=fuse%2
 
-        for e in pre.iterFusedEpochs(self.r,fused):fep.append(e)
+        for e in pre.iterEpochs(self.r,fuse=fuse):fep.append(e)
         for e in pre.iterEpochs(self.r):ep.append(e)
 
-        self.assertEqual(len(fep),len(ep)-fused)
-        self.assertEqual(fep[0].rid,ep[fused//2].rid)
-        self.assertEqual(fep[-1].rid,ep[len(ep)-fused//2-1].rid)
+        self.assertEqual(len(fep),len(ep)-fuse)
+        self.assertEqual(fep[0].rid,ep[fuse//2].rid)
+        self.assertEqual(fep[-1].rid,ep[len(ep)-fuse//2-1].rid)
+
+    def test_balance_data(self):
+        dataset=[]
+
+        for e in pre.iterEpochs(self.r):
+            dataset.append(e)
+        
+        sleep,wake=0,0
+
+        for d in pre.balanceDataset(dataset):
+            self.assertTrue(d in dataset)
+            if d.label: sleep+=1
+            else: wake+=1
+
+        
+        self.assertTrue(abs(1-sleep/wake)<=0.1)
 
