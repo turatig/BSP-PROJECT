@@ -4,8 +4,11 @@ from math import pi
 from statsmodels.regression.linear_model import yule_walker
 from scipy.signal import freqz,lfilter
 from scipy.stats import percentileofscore
-from pyentrp.entropy import sample_entropy
+#from neurokit2 import entropy_sample
+from antropy import sample_entropy
 from functools import reduce
+from math import inf,isinf
+
 
 #root mean of squared successive differences
 def rmssd(rr):
@@ -21,22 +24,26 @@ def rrStatistics(e):
 def getArModel(rr,order=9):
     rho,sigma=yule_walker(rr,order,'mle')
     rho*=-1
+    rho=rho[::-1]
 
     return rho,sigma
 
 #power spectral density estimation through autoregressive model of order 9
 def arPsd(rho,sigma,n=1024):
     spectrum=sigma**2/np.abs(freqz(1,np.concatenate([[1],rho]),n,whole=True)[1])**2
-    return np.concatenate([ spectrum[:len(spectrum)//2][::-1] , spectrum[len(spectrum)//2:][::-1] ])
+    #return np.concatenate([ spectrum[:len(spectrum)//2][::-1] , spectrum[len(spectrum)//2:][::-1] ])
+    return spectrum
 
 #compute low frequency/ high frequency ratio of rr series psd
-def lhRatio(spectrum,fs):
+def lhRatio(spectrum,fs=1000):
 
-    #right limit of hf band
-    rl=0.4 if 0.4<fs/2 else fs/2
+    #standard psd band for hrv analysis
+    lf=(0.04,0.15)
+    hf=( 0.15, 0.4 if 0.4<fs/2 else fs/2 )
+
     freq=[ i/len(spectrum)*fs for i in range(len(spectrum)) ]
-    lfs=[ spectrum[i] for i in range(len(spectrum)) if freq[i]>=0.04 and freq[i]<0.15 ]
-    hfs=[ spectrum[i] for i in range(len(spectrum)) if freq[i]>=0.15 and freq[i]<rl ]
+    lfs=[ spectrum[i] for i in range(len(spectrum)) if freq[i]>=lf[0] and freq[i]<lf[1] ]
+    hfs=[ spectrum[i] for i in range(len(spectrum)) if freq[i]>=hf[0] and freq[i]<hf[1] ]
 
     tot_a=np.sum(spectrum)
     lf=np.sum(lfs)/tot_a
@@ -51,14 +58,23 @@ def simulateArSent(rho,sigma,n=1024,simulations=200):
 
     for i in range(simulations):
         realization=lfilter([1],np.concatenate([[1],rho]),sigma*np.random.randn(n))
-        entropy_distr.append(sample_entropy(realization,1,0.2*sigma))
+        #entropy_distr.append( entropy_sample(realization,dimension=1,tolerance=0.2*np.std(realization))[0] )
+        entropy_distr.append( sample_entropy(realization,1) )
 
     return entropy_distr
 
 #compute a probability agreement coefficient for the sample entropy according to synthetic data generated from model
 def probAgreement(rho,sigma,sent,n,simulations=200):
+
     entropy_distr=simulateArSent(rho,sigma,n,simulations)
-    if sent<np.quantile(entropy_distr,0.05) or sent>np.quantile(entropy_distr,0.95):
+
+    #infinte values of sample entropy must be treated separately to avoid nan values
+    if isinf(sent):
+        return ( len([e for e in entropy_distr if e==sent])/len(entropy_distr) ) * 0.5
+
+    entropy_distr=[ e for e in entropy_distr if not isinf(e) ]
+
+    if sent<np.quantile(entropy_distr,0.05) or sent>np.quantile(entropy_distr,0.8):
         return 0
     elif sent>np.median(entropy_distr):
         return 1-percentileofscore(entropy_distr,sent)/100
@@ -108,7 +124,8 @@ class DataPoint():
         self.lfhf=lhRatio(spectrum,1/(np.mean(e.rr)/1000))
     
         #self-similarity features
-        self.sent=sample_entropy(e.rr,1,0.2*np.std(e.rr))
+        #self.sent=entropy_sample(e.rr,dimension=1,tolerance=0.2*np.std(e.rr))[0]
+        self.sent=sample_entropy(e.rr,1)
         self.scalexp=dfaExp(e.rr)
         self.pa=probAgreement(rho,sigma,self.sent,n=len(e.rr))
     
@@ -159,3 +176,20 @@ class DataPoint():
 
         return fmt
 
+#Return a list of datapoints in features space representation from an iterable of epochs
+def extractFeatures(epochs,verb=False):
+        datapoints=[]
+        bar=100
+        ecount=0
+
+        for e in epochs:
+            datapoints.append( DataPoint(e) )
+            p=int(ecount*bar/len(epochs))
+    
+            if verb and int((ecount-1)*bar/len(epochs))<p:
+                print("Feature extraction:["+"-"*p+" "*(bar-p)+"]",end=" " )
+                print("{0}/{1}".format(ecount,len(epochs)))
+            
+            ecount+=1
+
+        return datapoints

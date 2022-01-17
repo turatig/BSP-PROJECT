@@ -66,17 +66,19 @@ class Record():
 
 
 #iter records from the specified directory.
-def iterRecords(directory,max_iter=None,verb=False):
+def iterRecords(directory,max_iter=None,verb=False,bar=50):
     count=0
+    tot_rec= min(len(os.listdir(directory)),max_iter) if max_iter else len(os.listdir(directory))
+
     for record in os.listdir(directory):
-        if not max_iter or count<max_iter:
-            
-            if verb:
-                print("\n"*2+"-"*20+"   READING RECORD {0}   ".format(count)+"-"*20+"\n")
-            
+        if count<tot_rec:
+             
             yield Record(directory+"/"+record)
             count+=1
 
-    if verb:
-        print("{0} records read".format(count))
+        
+            if verb:
+                p=int(count*bar/tot_rec)
 
+                print("Records read:["+"*"*p+" "*(bar-p)+"]",end=" " )
+                print("{0}/{1}".format(count,tot_rec))

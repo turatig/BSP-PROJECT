@@ -31,7 +31,7 @@ def plotVM(ax,title,vm,fs):
 def plotVMTime(ax,vm,title,fs,zc=None):
     ax.set_title(title)
     ax.set_ylabel("Power")
-    ax.set_ylabel("Time(s)")
+    ax.set_xlabel("Time(s)")
 
     t=[i/fs for i in range(len(vm))]
     ax.plot(t,vm,color="blue",label="vector magnitude")
@@ -39,7 +39,6 @@ def plotVMTime(ax,vm,title,fs,zc=None):
         ax.plot(t,[zc for i in range(len(vm))],color="red",linestyle="dashed",label="zero-crossing line")
     
     ax.legend()
-    return ax
 
 def plotEpoch(e,stitle):
     fig,(ax1,ax2,ax3)=plt.subplots(3)
@@ -72,3 +71,16 @@ def plotPSD(psd,fs,stitle,per=None):
     fig.suptitle(stitle)
 
     return fig
+
+def plotGsCvResults(ax,scores,fusion_ax,title="10-fold Cross validation results"):
+    ax.set_title(title)
+    ax.set_xlabel("Fusion hyperparameter")
+    ax.set_ylabel("Score")
+
+    ax.plot(fusion_ax,[ score['acc'] for score in scores ],color="green",label="accuracy")
+    ax.plot(fusion_ax,[ score['cohen'] for score in scores ],color="blue",label="cohen's k-score")
+    ax.plot(fusion_ax,[ score['sp'] for score in scores ],color="red",label="specificty")
+    ax.plot(fusion_ax,[ score['se'] for score in scores ],color="orange",label="sensitivity")
+    
+    ax.legend()
+

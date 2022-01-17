@@ -165,6 +165,7 @@ def iterEpochs(record,max_iter=None,fuse=0,verb=False):
 def balanceDataset(dataset):
     #label counters
     counters={0:0,1:0}
+    dset=[]
 
     for d in dataset:
         if d.label: counters[1]+=1
@@ -175,5 +176,7 @@ def balanceDataset(dataset):
 
     for d in dataset:
         if d.label!=max_dset or random.uniform(0,1)<unbalance:
-            yield d
+            dset.append(d)
+
+    return dset
 
