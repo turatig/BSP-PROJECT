@@ -26,8 +26,8 @@ def svcDataset(datapoints,feature_set={"hrv"}):
         for f_type in feature_set:
             features+=feature_type[f_type](d)
 
-        X.append(features)
-        y.append(d.label)
+        X.append(np.array(features))
+        y.append(np.array(d.label))
 
     return X,y
 
@@ -79,3 +79,30 @@ def neighbourEpochSelection(data_dir,start=2,stop=14,max_iter_rec=None,max_iter_
         fuse+=2
 
     return scores
+
+#iterator yield (train,test) as list of indices implementing LOO strategy on subjects
+#each subject is associated with a record
+def leaveOneOutSubj(data_dir,max_rec=None,max_ep=None,verb=False):
+    lengths=[]
+
+    for r in rec.iterRecords(data_dir,max_iter=max_rec):
+        length=0
+        for e in pre.iterEpochs(r,max_iter=max_ep): length+=1
+        lengths.append(length)
+        if verb:
+            print("Length (in epochs): {0}".format(length))
+
+    tot=np.sum(lengths)
+    n=0
+    for l in lengths:
+        test=np.arange(n,n+l,dtype=int)
+        train=np.concatenate([ np.arange(0,n,dtype=int),np.arange(n+l,tot,dtype=int) ])
+        
+        if verb:
+            print("Train indices\n{0}".format(train))
+            print("Test indices \n{0}".format(test))
+
+        yield train,test
+        n+=l
+
+

@@ -162,7 +162,7 @@ def iterEpochs(record,max_iter=None,fuse=0,verb=False):
 
 
 #return a balanced dataset (with binary labels) by undersampling the major class
-def balanceDataset(dataset):
+def balanceDataset(dataset,verb=False):
     #label counters
     counters={0:0,1:0}
     dset=[]
@@ -177,6 +177,11 @@ def balanceDataset(dataset):
     for d in dataset:
         if d.label!=max_dset or random.uniform(0,1)<unbalance:
             dset.append(d)
+
+    if verb:
+        count0=len([ d for d in dset if not d.label ])
+        count1=len([ d for d in dset if d.label ])
+        print("Binary label count\nlabel 0: {0}\nlabel 1: {1}".format(count0,count1))
 
     return dset
 
