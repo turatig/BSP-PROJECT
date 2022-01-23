@@ -42,6 +42,7 @@ class ClassificationTest(unittest.TestCase):
         for train_idx,test_idx in clas.leaveOneOutSubj("data/anonymized"):
             expected_test= recs[count]
             expected_train= reduce(lambda i,j: i+j,recs[:count] + recs[count+1:])
+
             resulted_test=[ epochs[i] for i in test_idx ]
             resulted_train=[ epochs[i] for i in train_idx ]
 

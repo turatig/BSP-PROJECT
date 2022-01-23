@@ -3,6 +3,7 @@ from scipy.fft import fft
 import numpy as np
 from seaborn import heatmap
 from scipy.signal import periodogram
+from functools import reduce
 
 def plotRR(ax,title,e,bpm_lim=False):
     ax.set_title(title)
@@ -29,7 +30,7 @@ def plotVM(ax,title,vm,fs):
     ax.vlines([0.25,3],min(np.abs(sig)),max(np.abs(sig)),colors=["orange","orange"],linestyles=["dotted","dotted"])
 
 #plot vector magnitude of triaxial accelerometer highlighting zero-crossing threshold
-def plotVMTime(ax,vm,title,fs,zc=None):
+def plotVMTime(ax,title,vm,fs,zc=None):
     ax.set_title(title)
     ax.set_ylabel("Power")
     ax.set_xlabel("Time(s)")
@@ -39,6 +40,47 @@ def plotVMTime(ax,vm,title,fs,zc=None):
     if not zc is None:
         ax.plot(t,[zc for i in range(len(vm))],color="red",linestyle="dashed",label="zero-crossing line")
     
+    ax.legend()
+
+def plotGsCvResults(ax,title,scores,fusion_ax):
+    ax.set_title(title)
+    ax.set_xlabel("Fusion hyperparameter")
+    ax.set_ylabel("Score")
+
+    ax.plot(fusion_ax,[ score['acc'] for score in scores ],color="green",label="accuracy")
+    ax.plot(fusion_ax,[ score['cohen'] for score in scores ],color="blue",label="cohen's k-score")
+    ax.plot(fusion_ax,[ score['sp'] for score in scores ],color="red",label="specificty")
+    ax.plot(fusion_ax,[ score['se'] for score in scores ],color="orange",label="sensitivity")
+    
+    ax.legend()
+
+def plotSpearmanCor(ax,title,cov_mat,features):
+    heatmap(cov_mat,ax=ax,xticklabels=features,yticklabels=features,annot=True)
+
+def plotCvScores(ax,title,scores):
+    width=0.2
+    ax.set_title(title)
+    ax.set_ylabel("Performance")
+
+    m={"acc": [], "sp":[], "se":[], "cohen":[] }
+    std={"acc": [], "sp":[], "se":[], "cohen":[] }
+
+    x=[ i*2 for i in range(1,len(scores)+1) ]
+    xlabels=[]
+
+    for k,v in scores.items():
+        for k1,v1 in v.items():
+            m[k1].append( v1[0] )
+            std[k1].append( v1[1] )
+
+        xlabels.append( reduce( lambda i,j: str(i)+" + "+str(j),k ) )
+
+    ax.set_xticks( x )
+    ax.set_xticklabels( xlabels )
+    ax.bar( [ i-width*2 for i in x ],m["acc"],width=width,align="edge",color="green", label="accuracy" ) 
+    ax.bar( [ i-width for i in x ],m["sp"],width=width,align="edge",color="red", label="specificty" )
+    ax.bar( [ i for i in x ],m["se"],width=width,align="edge",color="yellow", label="sensitivity" ) 
+    ax.bar( [ i+width for i in x ],m["cohen"],width=width,align="edge",color="blue", label="cohen" ) 
     ax.legend()
 
 def plotEpoch(e,stitle):
@@ -55,7 +97,7 @@ def plotEpoch(e,stitle):
     return fig
 
 #per: if periodogram is provided then will be plotted against parametric PSD estimation
-def plotPSD(psd,fs,stitle,per=None):
+def plotPSD(psd,stitle,fs,per=None):
     fig,ax=plt.subplots()
 
     freq=[i/len(psd)*fs for i in range(len(psd))]
@@ -73,17 +115,3 @@ def plotPSD(psd,fs,stitle,per=None):
 
     return fig
 
-def plotGsCvResults(ax,scores,fusion_ax,title="10-fold Cross validation results"):
-    ax.set_title(title)
-    ax.set_xlabel("Fusion hyperparameter")
-    ax.set_ylabel("Score")
-
-    ax.plot(fusion_ax,[ score['acc'] for score in scores ],color="green",label="accuracy")
-    ax.plot(fusion_ax,[ score['cohen'] for score in scores ],color="blue",label="cohen's k-score")
-    ax.plot(fusion_ax,[ score['sp'] for score in scores ],color="red",label="specificty")
-    ax.plot(fusion_ax,[ score['se'] for score in scores ],color="orange",label="sensitivity")
-    
-    ax.legend()
-
-def plotCovariance(ax,cov_mat,features):
-    heatmap(cov_mat,ax=ax,xticklabels=features,yticklabels=features,annot=True)

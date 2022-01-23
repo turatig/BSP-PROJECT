@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score,cohen_kappa_score,confusion_matrix
 from sklearn.model_selection import cross_validate
+from itertools import tee
 
 
 def svcDataset(datapoints,feature_set=["hrv"]):
@@ -87,8 +88,6 @@ def leaveOneOutSubj(data_dir,fuse=0,max_rec=None,max_ep=None,verb=False):
         length=0
         for e in pre.iterEpochs(r,fuse=fuse,max_iter=max_ep): length+=1
         lengths.append(length)
-        if verb:
-            print("Length (in epochs): {0}".format(length))
 
     tot=np.sum(lengths)
     n=0
@@ -97,10 +96,39 @@ def leaveOneOutSubj(data_dir,fuse=0,max_rec=None,max_ep=None,verb=False):
         train=np.concatenate([ np.arange(0,n,dtype=int),np.arange(n+l,tot,dtype=int) ])
         
         if verb:
-            print("Train indices\n{0}".format(train))
-            print("Test indices \n{0}".format(test))
+            print("Train indices\n[ {0} , {1} ) U [ {2} , {3} )".format(0,n,n+l,tot))
+            print("Test indices \n[ {0} , {1} )".format(n,n+l))
 
         yield train,test
         n+=l
 
+def looScores(dpoints,loo_it,verb=False):
 
+    scores=dict()
+    model=SVC(kernel="linear",max_iter=50)
+    feat_set=[
+            ('chest',),
+            ('wrist',),
+            ('hrv',),
+            ('hrv','chest'),
+            ('hrv','wrist')
+    ]
+    
+    for f in feat_set:
+        X,y=svcDataset( dpoints, f )
+        loo_it,it=tee(loo_it)
+        if verb:
+            print("Scoring classification for feature set: {0}".format( f ))
+
+        cv_res=cross_validate( model,X,y,scoring=svcScore,cv=it,verbose=3 if verb else 0 )
+
+        score={
+                "acc": ( np.mean(cv_res['test_acc']),np.std(cv_res['test_acc']) ),
+                "cohen":( np.mean(cv_res['test_cohen']),np.std(cv_res['test_cohen']) ),
+                "sp":( np.mean(cv_res['test_sp']),np.std(cv_res['test_sp']) ),
+                "se":( np.mean(cv_res['test_se']),np.std(cv_res['test_se']) )
+            }
+        
+        scores[f]=score
+        
+    return scores

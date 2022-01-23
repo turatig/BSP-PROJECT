@@ -1,6 +1,8 @@
 import numpy as np
 import fathon as fa
 import pickle
+import src.preproc as pre
+import src.records as rec
 from math import pi
 from statsmodels.regression.linear_model import yule_walker
 from scipy.signal import freqz,lfilter
@@ -25,7 +27,7 @@ def rrStatistics(e):
 def getArModel(rr,order=9):
     rho,sigma=yule_walker(rr - np.mean(rr) ,order,'mle')
     rho*=-1
-    rho=rho[::-1]
+    #rho=rho[::-1]
 
     return rho,sigma
 
@@ -178,7 +180,7 @@ class DataPoint():
         #rr self-similarity features
         self.sent=sample_entropy(e.rr,1)
         self.scalexp=dfaExp(e.rr)
-        self.pa=probAgreement(rho,sigma,self.sent,n=len(e.rr))
+        self.pa=probAgreement(rho,sigma,self.sent,n=len(e.rr),simulations=200)
     
 
     def extractAccFeatures(self,e):
@@ -280,3 +282,10 @@ def extractFeatures(epochs,verb=False,dump=False,dump_file="feature.pkl"):
 
         return datapoints
 
+def getDatapoints(data_dir,fuse=0,max_rec=None,max_ep=None,verb=False):
+    epochs=[]
+    for r in rec.iterRecords(data_dir,max_iter=max_rec,verb=verb):
+        for e in pre.iterEpochs(r,max_iter=max_ep,fuse=fuse):
+            epochs.append(e)
+
+    return extractFeatures( epochs,verb=verb )

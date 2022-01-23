@@ -21,13 +21,13 @@ def plotData(e,rec_count,epoch):
     else: per=periodogram(e.rr,nfft=1024,return_onesided=False)[1]
 
 
-    fig2=plot.plotPSD(psd,1/(np.mean(e.rr)/1000),\
-            "Record {0} Epoch {1}\nLabel: {2}".format(rec_count,e.rid,label),per=per)
+    fig2=plot.plotPSD(psd,"Record {0} Epoch {1}\nLabel: {2}".format(rec_count,e.rid,label),\
+            1/(np.mean(e.rr)/1000),per=per)
     fig2.show()
 
     fig3,(ax1,ax2)=plt.subplots(2)
-    plot.plotVMTime(ax1,e.vmw,"Vector magnitude wrist",e.fsacc)
-    plot.plotVMTime(ax2,e.vmc,"Vector magnitude chest",e.fsacc)
+    plot.plotVMTime(ax1,"Vector magnitude wrist",e.vmw,e.fsacc)
+    plot.plotVMTime(ax2,"Vector magnitude chest",e.vmc,e.fsacc)
     
     fig3.show()
 

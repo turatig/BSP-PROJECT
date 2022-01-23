@@ -22,7 +22,8 @@ def searchBestFusion(data_dir,start=2,stop=14,max_rec=None,max_ep=None,verb=Fals
         print("Score: {0}".format(best_score[1]))
 
         fig,ax=plt.subplots()
-        plot.plotGsCvResults(ax,scores,fused_epochs)
+        plot.plotGsCvResults(ax,"10-fold cross-validation results \n\
+                fusion hyper: number of subsequent rr epochs",scores,fused_epochs)
         plt.show()
 
     return best_score
@@ -34,7 +35,7 @@ def searchBestFusion(data_dir,start=2,stop=14,max_rec=None,max_ep=None,verb=Fals
 def covarianceAnalysis(dpoints,n_subsets=30):
     cors=[] 
     for i in range(n_subsets):
-        X,y=clas.svcDataset( pre.balanceDataset( dpoints ) )
+        X,y=clas.svcDataset( pre.balanceDataset( dpoints ),['hrv'] )
         cors.append( spearmanr( X, axis=0 )[0] )
 
     #compute median covariance among features
@@ -42,7 +43,7 @@ def covarianceAnalysis(dpoints,n_subsets=30):
     labels=feat.DataPoint.rrSemantics()
     
     fig,ax=plt.subplots()
-    plot.plotCovariance( ax,mcor,labels )
+    plot.plotSpearmanCor( ax,mcor,labels )
     plt.show()
 
 #filen: name of the output file
@@ -56,12 +57,19 @@ def dumpDataset(data_dir,filen,fuse=0,max_rec=None,max_ep=None,verb=False):
     feat.dumpPoints(dpoints,filen)
 
     return dpoints
+
     
+
 if __name__=="__main__":
-    #searchBestFusion("data/anonymized",start=2,stop=6,max_rec=2,verb=True)
-    #covarianceAnalysis("data/anonymized",n_subsets=30,fuse=14,verb=True)
+    #searchBestFusion("data/anonymized",start=2,stop=6,max_rec=2,max_ep=200,verb=True)
     dpoints=feat.pointsFromFile("dset_fuse14.pkl")
-    covarianceAnalysis( dpoints )
+    scores=clas.looScores( dpoints , loo_it= clas.leaveOneOutSubj("data/anonymized",fuse=14,verb=True),verb=True)
+    fig,ax=plt.subplots()
+    plot.plotCvScores(ax,"Leave-one-out subject evaluation",scores)
+    fig.show()
+    plt.show()
+    #covarianceAnalysis( dpoints )
+    #covarianceAnalysis( feat.getDatapoints("data/anonymized",fuse=14 ,verb=True) )
     #dumpDataset("data/anonymized","dset_fuse14.pkl",fuse=14,verb=True)
 
     
