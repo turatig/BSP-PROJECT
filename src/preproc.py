@@ -38,12 +38,12 @@ class Epoch():
     def fuseLeft(self,epochs,rr_only=True):
         if epochs:
             for e in epochs[::-1]:
-                self.fuse(e,self)
+                self.fuse(e,self,rr_only)
     
     def fuseRight(self,epochs,rr_only=True):
         if epochs:
             for e in epochs:
-                self.fuse(self,e)
+                self.fuse(self,e,rr_only)
                 
     def copy(self):
         return Epoch(self.dur,self.fsecg,self.fsacc,self.rr,self.mean,\

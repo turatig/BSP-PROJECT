@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from scipy.fft import fft
 import numpy as np
+from seaborn import heatmap
 from scipy.signal import periodogram
 
 def plotRR(ax,title,e,bpm_lim=False):
@@ -84,3 +85,5 @@ def plotGsCvResults(ax,scores,fusion_ax,title="10-fold Cross validation results"
     
     ax.legend()
 
+def plotCovariance(ax,cov_mat,features):
+    heatmap(cov_mat,ax=ax,xticklabels=features,yticklabels=features,annot=True)

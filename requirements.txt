@@ -1,0 +1,23 @@
+#### ML and DSP (de-facto) standard libs
+numpy
+matplotlib
+scipy
+sklearn
+
+#### yule-walker for AR model identification
+statsmodel
+#### Detrended Fluctuations Analysis implementation
+fathon
+#### Sample entropy computation
+antropy
+
+#### Common python libs
+sys
+os
+random
+math
+time
+unittest
+
+
+

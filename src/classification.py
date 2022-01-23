@@ -8,7 +8,7 @@ from sklearn.metrics import accuracy_score,cohen_kappa_score,confusion_matrix
 from sklearn.model_selection import cross_validate
 
 
-def svcDataset(datapoints,feature_set={"hrv"}):
+def svcDataset(datapoints,feature_set=["hrv"]):
     feature_type={
             "hrv": lambda d: d.rrRepr(),
             "chest": lambda d: d.chestRepr(),
@@ -29,7 +29,7 @@ def svcDataset(datapoints,feature_set={"hrv"}):
         X.append(np.array(features))
         y.append(np.array(d.label))
 
-    return X,y
+    return np.array(X),np.array(y)
 
 def svcScore(clf,X,y_truth):
     
@@ -47,24 +47,22 @@ def svcScore(clf,X,y_truth):
 
 #perform a grid-search 10-fold cv on the fusion hyperparameter 
 #i.e. number of adjacent epochs to be considered to have reliable
-def neighbourEpochSelection(data_dir,start=2,stop=14,max_iter_rec=None,max_iter_ep=None,verb=False):
+def neighbourEpochSelection(data_dir,start=2,stop=14,max_rec=None,max_ep=None,verb=False):
 
     model=SVC(kernel="linear")
     fuse=start
 
     scores=[]
 
-    records=[ r for r in rec.iterRecords(data_dir,max_iter=max_iter_rec,verb=verb) ]
+    records=[ r for r in rec.iterRecords(data_dir,max_iter=max_rec,verb=verb) ]
     print("\n\n--- Scoring hrv features for the fusion hyperparam selection: range[{0},{1}] ---\n".format(start,stop))
-
     while fuse<=stop:
         epochs=[]
         print("--- Nearby epochs to be fused: {0} ---\n--- Preprocessing and epochs extraction ---\n".format(fuse))
         for r in records:
-            epochs+=[e for e in pre.iterEpochs(r,fuse=fuse,max_iter=max_iter_ep)]
-    
-        X,y=svcDataset( feat.extractFeatures(pre.balanceDataset(epochs),verb=verb) )
-
+            epochs+=[e for e in pre.iterEpochs(r,fuse=fuse,max_iter=max_ep)]
+        
+        X,y=svcDataset( feat.extractFeatures(pre.balanceDataset(epochs,verb=verb),verb=verb) )
         print("--- Cross-validated scoring ---")
         cv_res=cross_validate( model,X,y,scoring=svcScore,cv=10,verbose=3 if verb else 0 )
 
@@ -82,12 +80,12 @@ def neighbourEpochSelection(data_dir,start=2,stop=14,max_iter_rec=None,max_iter_
 
 #iterator yield (train,test) as list of indices implementing LOO strategy on subjects
 #each subject is associated with a record
-def leaveOneOutSubj(data_dir,max_rec=None,max_ep=None,verb=False):
+def leaveOneOutSubj(data_dir,fuse=0,max_rec=None,max_ep=None,verb=False):
     lengths=[]
 
     for r in rec.iterRecords(data_dir,max_iter=max_rec):
         length=0
-        for e in pre.iterEpochs(r,max_iter=max_ep): length+=1
+        for e in pre.iterEpochs(r,fuse=fuse,max_iter=max_ep): length+=1
         lengths.append(length)
         if verb:
             print("Length (in epochs): {0}".format(length))

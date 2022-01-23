@@ -1,10 +1,14 @@
 import unittest
 import sys
+import os
 import numpy as np
 
 sys.path.append('..')
 
 import src.feature as feat
+import src.preproc as pre
+import src.records as rec
+
 from statsmodels.regression.linear_model import yule_walker 
 from numpy.random import uniform,randn
 from scipy.signal import lfilter
@@ -52,3 +56,23 @@ class FeatureTest(unittest.TestCase):
         sent=np.mean(median_entropy)
         tested=feat.probAgreement(rho,sigma,sent,n,nsim)
         self.assertTrue(tested>=0.4)
+    
+    def test_dump(self):
+        r=rec.Record("data/anonymized/record_0.mat")
+        dpoints=[]
+        
+        if os.path.exists("test_dump.pkl"):
+            os.remove("test_dump.pkl")
+
+        for e in pre.iterEpochs(r):
+            dpoints.append( feat.DataPoint(e) )
+
+        feat.dumpPoints( dpoints, "test_dump.pkl")
+        t_dpoints= feat.pointsFromFile("test_dump.pkl")
+
+        self.assertEqual( len( dpoints ), len( t_dpoints ) )
+        for i in range( len( dpoints ) ):
+            self.assertEqual( dpoints[ i ], t_dpoints[ i ] )
+
+        os.remove("test_dump.pkl")
+

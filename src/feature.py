@@ -1,5 +1,6 @@
 import numpy as np
 import fathon as fa
+import pickle
 from math import pi
 from statsmodels.regression.linear_model import yule_walker
 from scipy.signal import freqz,lfilter
@@ -22,7 +23,7 @@ def rrStatistics(e):
     return meanrr,stdrr,rmssdrr
 
 def getArModel(rr,order=9):
-    rho,sigma=yule_walker(rr,order,'mle')
+    rho,sigma=yule_walker(rr - np.mean(rr) ,order,'mle')
     rho*=-1
     rho=rho[::-1]
 
@@ -31,7 +32,6 @@ def getArModel(rr,order=9):
 #power spectral density estimation through autoregressive model of order 9
 def arPsd(rho,sigma,n=1024):
     spectrum=sigma**2/np.abs(freqz(1,np.concatenate([[1],rho]),n,whole=True)[1])**2
-    #return np.concatenate([ spectrum[:len(spectrum)//2][::-1] , spectrum[len(spectrum)//2:][::-1] ])
     return spectrum
 
 #compute low frequency/ high frequency ratio of rr series psd
@@ -57,8 +57,7 @@ def simulateArSent(rho,sigma,n=1024,simulations=200):
     entropy_distr=[]
 
     for i in range(simulations):
-        realization=lfilter([1],np.concatenate([[1],rho]),sigma*np.random.randn(n))
-        #entropy_distr.append( entropy_sample(realization,dimension=1,tolerance=0.2*np.std(realization))[0] )
+        realization=lfilter( [1],np.concatenate([[1],rho]),sigma*np.random.randn(n) )
         entropy_distr.append( sample_entropy(realization,1) )
 
     return entropy_distr
@@ -67,19 +66,22 @@ def simulateArSent(rho,sigma,n=1024,simulations=200):
 def probAgreement(rho,sigma,sent,n,simulations=200):
 
     entropy_distr=simulateArSent(rho,sigma,n,simulations)
+    pa=0
 
-    #infinte values of sample entropy must be treated separately to avoid nan values
+    #infinte values of sample entropy are treated separately to avoid nan values
     if isinf(sent):
-        return ( len([e for e in entropy_distr if e==sent])/len(entropy_distr) ) * 0.5
-
-    entropy_distr=[ e for e in entropy_distr if not isinf(e) ]
-
-    if sent<np.quantile(entropy_distr,0.05) or sent>np.quantile(entropy_distr,0.8):
-        return 0
-    elif sent>np.median(entropy_distr):
-        return 1-percentileofscore(entropy_distr,sent)/100
+        pa = ( len([ e for e in entropy_distr if e==sent ] ) / len( entropy_distr ) ) * 0.5
+    
     else:
-        return percentileofscore(entropy_distr,sent)/100
+        entropy_distr=[ e for e in entropy_distr if not isinf(e) ]
+        if sent<np.quantile( entropy_distr,0.05 ) or sent>np.quantile( entropy_distr,0.95 ):
+            pa = 0
+        elif sent>np.median(entropy_distr):
+            pa = 1-percentileofscore(entropy_distr,sent)/100
+        else:
+            pa = percentileofscore(entropy_distr,sent)/100
+
+    return pa
 
 #detrended fluctuations analysis short scale exponent
 def dfaExp(rr,min_scale=4,max_scale=12):
@@ -108,47 +110,107 @@ def tcr(vm,th=0):
 #representation of an epoch as a point in feature space
 class DataPoint():
 
-    def __init__(self,e):
-        self.extractRrFeatures(e)
-        self.extractAccFeatures(e)
-        self.label=e.label
+
+    def __init__(self,e=None):
+
+        #set all features to 0
+        if e is None:
+            self.setFeatures([ 0 for i in range(15) ])
+        
+        #else a pre.Epoch obj is assumed
+        else:
+            self.extractRrFeatures(e)
+            self.extractAccFeatures(e)
+            self.label=e.label
+
+    #set features from list representation
+    def setRR(self,l):
+        if len(l)==7:
+            #rr features
+            self.meanrr = l[0]
+            self.stdrr = l[1]
+            self.rmssdrr = l[2]
+            self.lfhf = l[3]
+            self.sent = l[4]
+            self.pa = l[5]
+            self.scalexp = l[6]
+        else:
+            raise Exception("Wrong argument's length")
+    
+    def setChest(self,l):
+        if len(l)==4:
+            #chest vector magnitude features
+            self.vmc_tcr = l[0]
+            self.vmc_mean = l[1]
+            self.vmc_std = l[2]
+            self.vmc_max = l[3]
+        else:
+            raise Exception("Wrong argument's length")
+
+    def setWrist(self,l):
+        if len(l)==4:
+            #wrist vector magnitude features
+            self.vmw_tcr = l[0]
+            self.vmw_mean = l[1]
+            self.vmw_std = l[2]
+            self.vmw_max = l[3]
+        else:
+            raise Exception("Bad argument's length")
+    
+    def setFeatures(self,l):
+        if len(l)==15:
+            self.setRR( l[:7] )
+            self.setChest( l[7:11] )
+            self.setWrist( l[11:] )
+        else:
+            raise Exception("Bad argument's length")
 
     def extractRrFeatures(self,e):
         
+        #rr statistics
         self.meanrr,self.stdrr,self.rmssdrr=rrStatistics(e)
     
-        #power spectral density feature
+        #rr psd feature
         rho,sigma=getArModel(e.rr)
         spectrum=arPsd(rho,sigma)
-
         self.lfhf=lhRatio(spectrum,1/(np.mean(e.rr)/1000))
     
-        #self-similarity features
-        #self.sent=entropy_sample(e.rr,dimension=1,tolerance=0.2*np.std(e.rr))[0]
+        #rr self-similarity features
         self.sent=sample_entropy(e.rr,1)
         self.scalexp=dfaExp(e.rr)
         self.pa=probAgreement(rho,sigma,self.sent,n=len(e.rr))
     
 
     def extractAccFeatures(self,e):
-        self.vmc_tcr=tcr(e.vmc,0.0052)
-        self.vmc_mean=np.mean(e.vmc)
-        self.vmc_std=np.std(e.vmc)
-        self.vmc_max=max(e.vmc)
 
-        self.vmw_tcr=tcr(e.vmw,0.0052)
-        self.vmw_mean=np.mean(e.vmw)
-        self.vmw_std=np.std(e.vmw)
-        self.vmw_max=max(e.vmw)
+        self.setChest([ tcr( e.vmc,0.0052 ), np.mean( e.vmc ),np.std( e.vmc ), max( e.vmc ) ])
+        self.setWrist([ tcr( e.vmw,0.0052 ), np.mean( e.vmw ),np.std( e.vmw ), max( e.vmw ) ])
 
     def rrRepr(self):
-        return [self.meanrr,self.stdrr,self.rmssdrr,self.sent,self.pa,self.scalexp]
-
+        return [ self.meanrr,self.stdrr,self.rmssdrr,self.lfhf,self.sent,self.pa,self.scalexp ]
+    
     def chestRepr(self):
-        return [self.vmc_tcr,self.vmc_mean,self.vmc_std,self.vmc_max]
+        return [ self.vmc_tcr,self.vmc_mean,self.vmc_std,self.vmc_max ]
 
     def wristRepr(self):
-        return [self.vmw_tcr,self.vmw_mean,self.vmw_std,self.vmw_max]
+        return [ self.vmw_tcr,self.vmw_mean,self.vmw_std,self.vmw_max ]
+     
+
+    @staticmethod
+    def rrSemantics():
+        return ["MeanRR","StdRR","RmssdRR","lf/hf","SampleEnt","ProbAgree","Alpha1"]
+
+    
+    def __eq__(self,p):
+        l = self.rrRepr() + self.chestRepr() + self.wristRepr() + [self.label]
+        pl = p.rrRepr() + p.chestRepr() + p.wristRepr() + [self.label]
+
+        if len(l) != len(pl): return False
+
+        for i in range(len(l)):
+            if l[i]!=pl[i]: return False
+
+        return True
 
     def __str__(self):
         div="-"*20+"\n"
@@ -176,8 +238,29 @@ class DataPoint():
 
         return fmt
 
-#Return a list of datapoints in features space representation from an iterable of epochs
-def extractFeatures(epochs,verb=False):
+def dumpPoints(datapoints,filen):
+
+    with open(filen,'wb') as f:
+        for d in datapoints:
+            pickle.dump( d,f )
+
+    f.close()
+
+def pointsFromFile(filen):
+
+    datapoints=[]
+    with open(filen,"rb") as f:
+        while True:
+            try:
+                datapoints.append( pickle.load(f) )
+
+            except EOFError:
+                break
+    f.close()
+    return datapoints
+
+#return a list of datapoints in features space representation from an iterable of epochs
+def extractFeatures(epochs,verb=False,dump=False,dump_file="feature.pkl"):
         datapoints=[]
         bar=100
         ecount=0
@@ -192,4 +275,8 @@ def extractFeatures(epochs,verb=False):
             
             ecount+=1
 
+        if dump:
+            dumpPoints(datapoints,dump_file)
+
         return datapoints
+
