@@ -105,7 +105,7 @@ def leaveOneOutSubj(data_dir,fuse=0,max_rec=None,max_ep=None,verb=False):
 def looScores(dpoints,loo_it,verb=False):
 
     scores=dict()
-    model=SVC(kernel="linear",max_iter=50)
+    model=SVC(kernel="linear")
     feat_set=[
             ('chest',),
             ('wrist',),

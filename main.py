@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 import numpy as np
 import time
+import sys
 
 #grid search cv on fusion hyperparameter -- i.e: number of subsequent of rr epochs to join before extracting features
 def searchBestFusion(data_dir,start=2,stop=14,max_rec=None,max_ep=None,verb=False):
@@ -30,9 +31,9 @@ def searchBestFusion(data_dir,start=2,stop=14,max_rec=None,max_ep=None,verb=Fals
 
 #estimate feature covariance through the following process:
 #-extract 30 balancedDataset (3000 epochs of sleep and 3000 epochs of wake each)
-#-compute the covariance matrix
-#-visualize the matrix of the median covariance of each couple of features
-def covarianceAnalysis(dpoints,n_subsets=30):
+#-compute the spearman correlation matrix of each subset
+#-compute the matrix of median correlation
+def corrAnalysis(dpoints,n_subsets=30):
     cors=[] 
     for i in range(n_subsets):
         X,y=clas.svcDataset( pre.balanceDataset( dpoints ),['hrv'] )
@@ -43,7 +44,7 @@ def covarianceAnalysis(dpoints,n_subsets=30):
     labels=feat.DataPoint.rrSemantics()
     
     fig,ax=plt.subplots()
-    plot.plotSpearmanCor( ax,mcor,labels )
+    plot.plotSpearmanCor( ax,"Feature correlation matrix",mcor,labels )
     plt.show()
 
 #filen: name of the output file
@@ -61,16 +62,41 @@ def dumpDataset(data_dir,filen,fuse=0,max_rec=None,max_ep=None,verb=False):
     
 
 if __name__=="__main__":
-    #searchBestFusion("data/anonymized",start=2,stop=6,max_rec=2,max_ep=200,verb=True)
-    dpoints=feat.pointsFromFile("dset_fuse14.pkl")
-    scores=clas.looScores( dpoints , loo_it= clas.leaveOneOutSubj("data/anonymized",fuse=14,verb=True),verb=True)
-    fig,ax=plt.subplots()
-    plot.plotCvScores(ax,"Leave-one-out subject evaluation",scores)
-    fig.show()
-    plt.show()
-    #covarianceAnalysis( dpoints )
-    #covarianceAnalysis( feat.getDatapoints("data/anonymized",fuse=14 ,verb=True) )
-    #dumpDataset("data/anonymized","dset_fuse14.pkl",fuse=14,verb=True)
+    if len(sys.argv)>1 and sys.argv[1]=="--loo":
+        if len(sys.argv)>2:
+            dpoints=feat.pointsFromFile(sys.argv[2])
+        else:
+            dpoints=feat.pointsFromFile("dset_fuse14.pkl")
+
+        scores=clas.looScores( dpoints , loo_it= clas.leaveOneOutSubj("data/anonymized",fuse=14,verb=True),verb=True)
+        fig,ax=plt.subplots()
+        plot.plotCvScores(ax,"Leave-one-out subject evaluation",scores)
+        plt.show()
+    
+    elif len(sys.argv)>1 and sys.argv[1]=="--grid-search":
+        searchBestFusion("data/anonymized",verb=True)
+
+    elif len(sys.argv)>1 and sys.argv[1]=="--corr":
+        if len(sys.argv)>2:
+            dpoints=feat.pointsFromFile(sys.argv[2])
+        else:
+            dpoints=feat.pointsFromFile("dset_fuse14.pkl")
+        corrAnalysis( dpoints )
+
+    elif len(sys.argv)>1 and sys.argv[1]=="--dump":
+        if len(sys.argv)>2:
+             filen="dset_fuse"+sys.argv[2]+".pkl"
+             dpoints=feat.getDatapoints("data/anonymized",fuse=int(sys.argv[2]),verb=True)
+        else:
+            filen="dset_fuse14.pkl"
+            dpoints=feat.getDatapoints("data/anonymized",fuse=14,verb=True)
+        feat.dumpPoints( dpoints,filen )
+    else:
+        print("Usage:")
+        print("\t\t--loo [feat_dump_file]: leave-one-out subject evaluation of the classifier")
+        print("\t\t--grid-search: grid-search cross-validation for number of subsequent epochs for hrv features")
+        print("\t\t--corr [feat_dump_file]: plot estimate of features correlation")
+        print("\t\t--dump [fuse]: dump datapoints on file with pickle")
 
     
 

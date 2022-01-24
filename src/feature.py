@@ -7,7 +7,6 @@ from math import pi
 from statsmodels.regression.linear_model import yule_walker
 from scipy.signal import freqz,lfilter
 from scipy.stats import percentileofscore
-#from neurokit2 import entropy_sample
 from antropy import sample_entropy
 from functools import reduce
 from math import inf,isinf
@@ -27,7 +26,6 @@ def rrStatistics(e):
 def getArModel(rr,order=9):
     rho,sigma=yule_walker(rr - np.mean(rr) ,order,'mle')
     rho*=-1
-    #rho=rho[::-1]
 
     return rho,sigma
 

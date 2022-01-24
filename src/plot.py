@@ -55,6 +55,7 @@ def plotGsCvResults(ax,title,scores,fusion_ax):
     ax.legend()
 
 def plotSpearmanCor(ax,title,cov_mat,features):
+    ax.set_title( title )
     heatmap(cov_mat,ax=ax,xticklabels=features,yticklabels=features,annot=True)
 
 def plotCvScores(ax,title,scores):
@@ -77,10 +78,18 @@ def plotCvScores(ax,title,scores):
 
     ax.set_xticks( x )
     ax.set_xticklabels( xlabels )
-    ax.bar( [ i-width*2 for i in x ],m["acc"],width=width,align="edge",color="green", label="accuracy" ) 
-    ax.bar( [ i-width for i in x ],m["sp"],width=width,align="edge",color="red", label="specificty" )
-    ax.bar( [ i for i in x ],m["se"],width=width,align="edge",color="yellow", label="sensitivity" ) 
-    ax.bar( [ i+width for i in x ],m["cohen"],width=width,align="edge",color="blue", label="cohen" ) 
+    ax.bar( [ i-width*2 for i in x ],m["acc"],width=width,align="edge",color="yellow", label="accuracy" ) 
+    ax.errorbar( [ i-width*2 for i in x ],m["acc"],std["acc"],linestyle="None" ) 
+
+    ax.bar( [ i-width for i in x ],m["sp"],width=width,align="edge",color="blue", label="specificty" )
+    ax.errorbar( [ i-width for i in x ],m["sp"],std["sp"],linestyle="None" ) 
+
+    ax.bar( [ i for i in x ],m["se"],width=width,align="edge",color="violet", label="sensitivity" ) 
+    ax.errorbar( [ i for i in x ],m["se"],std["se"],linestyle="None" ) 
+
+    ax.bar( [ i+width for i in x ],m["cohen"],width=width,align="edge",color="red", label="cohen" ) 
+    ax.errorbar( [ i+width for i in x ],m["cohen"],std["cohen"],linestyle="None" )
+
     ax.legend()
 
 def plotEpoch(e,stitle):
