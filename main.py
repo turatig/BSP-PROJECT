@@ -108,8 +108,10 @@ if __name__=="__main__":
             dpoints=feat.getDatapoints("data/anonymized",fuse=14,verb=True)
         feat.dumpPoints( dpoints,filen )
     else:
-        print("Usage:")
-        print("\t\t--loo [feat_dump_file]: leave-one-out subject evaluation of the classifier")
-        print("\t\t--grid-search: grid-search cross-validation for number of subsequent epochs for hrv features")
-        print("\t\t--corr [feat_dump_file]: plot estimate of features correlation")
-        print("\t\t--dump [fuse]: dump datapoints on file with pickle")
+        print("Usage: python main.py --option [value]")
+        print("\t\t--loo [feat_dump_file]: leave-one-out subject evaluation of the classifier.")
+        print("\t\t--grid-search: grid-search cross-validation."+\
+                "\n\t\tSelect the best number of subsequent epochs to join for hrv features computation.")
+        print("\t\t--corr [feat_dump_file]: plot estimate of features correlation.")
+        print("\t\t--dump [n]: dump datapoints in data/anonymized on file with pickle."+\
+                "\n\t\t n: number of subsequent epochs to join for hrv feature computation.\n\t\tOutput file: dset_fuse[n].pkl")
