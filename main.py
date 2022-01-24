@@ -10,7 +10,8 @@ import time
 import sys
 
 #grid search cv on fusion hyperparameter -- i.e: number of subsequent of rr epochs to join before extracting features
-def searchBestFusion(data_dir,start=2,stop=14,max_rec=None,max_ep=None,verb=False):
+#tol,max_iter: svc classifier convergence paramters
+def searchBestFusion(data_dir,start=2,stop=14,max_rec=None,max_ep=None,tol=1e-3,max_iter=-1,verb=False):
 
     scores=clas.neighbourEpochSelection(data_dir,start=start,stop=stop,max_rec=max_rec,max_ep=max_ep,verb=verb)
     #only even number of epochs are fused with one -- half on the left, half on the right of the labeled epoch
@@ -34,17 +35,32 @@ def searchBestFusion(data_dir,start=2,stop=14,max_rec=None,max_ep=None,verb=Fals
 #-compute the spearman correlation matrix of each subset
 #-compute the matrix of median correlation
 def corrAnalysis(dpoints,n_subsets=30):
-    cors=[] 
+    cors,cors_chest,cors_wrist=[],[],[] 
     for i in range(n_subsets):
         X,y=clas.svcDataset( pre.balanceDataset( dpoints ),['hrv'] )
         cors.append( spearmanr( X, axis=0 )[0] )
+        X,y=clas.svcDataset( pre.balanceDataset( dpoints ),['chest'] )
+        cors_chest.append( spearmanr( X, axis=0 )[0] )
+        X,y=clas.svcDataset( pre.balanceDataset( dpoints ),['wrist'] )
+        cors_wrist.append( spearmanr( X, axis=0 )[0] )
+        
 
     #compute median covariance among features
     mcor=np.median(cors,axis=0)
     labels=feat.DataPoint.rrSemantics()
     
     fig,ax=plt.subplots()
-    plot.plotSpearmanCor( ax,"Feature correlation matrix",mcor,labels )
+    plot.plotSpearmanCor( ax,"Hrv features correlation",mcor,labels )
+
+    mcor=np.median(cors_chest,axis=0)
+    labels=feat.DataPoint.accSemantics()
+    
+    fig,ax=plt.subplots()
+    plot.plotSpearmanCor( ax,"Chest acceleration features correlation",mcor,labels )
+
+    mcor=np.median(cors_wrist,axis=0)
+    fig,ax=plt.subplots()
+    plot.plotSpearmanCor( ax,"Wrist acceleration features correlation",mcor,labels )
     plt.show()
 
 #filen: name of the output file
@@ -68,7 +84,7 @@ if __name__=="__main__":
         else:
             dpoints=feat.pointsFromFile("dset_fuse14.pkl")
 
-        scores=clas.looScores( dpoints , loo_it= clas.leaveOneOutSubj("data/anonymized",fuse=14,verb=True),verb=True)
+        scores=clas.looScores( dpoints , loo_it= clas.leaveOneOutSubj("data/anonymized",fuse=14),tol=1e-2,verb=True)
         fig,ax=plt.subplots()
         plot.plotCvScores(ax,"Leave-one-out subject evaluation",scores)
         plt.show()
@@ -97,8 +113,3 @@ if __name__=="__main__":
         print("\t\t--grid-search: grid-search cross-validation for number of subsequent epochs for hrv features")
         print("\t\t--corr [feat_dump_file]: plot estimate of features correlation")
         print("\t\t--dump [fuse]: dump datapoints on file with pickle")
-
-    
-
-    
-

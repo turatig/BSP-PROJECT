@@ -199,6 +199,9 @@ class DataPoint():
     @staticmethod
     def rrSemantics():
         return ["MeanRR","StdRR","RmssdRR","lf/hf","SampleEnt","ProbAgree","Alpha1"]
+    @staticmethod
+    def accSemantics():
+        return ["Zero-crossingVM","MeanVM","StdVM","MaxVM"]
 
     
     def __eq__(self,p):

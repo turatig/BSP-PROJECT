@@ -4,8 +4,12 @@ import src.feature as feat
 import src.plot as plot
 import numpy as np
 from sklearn.svm import SVC
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score,cohen_kappa_score,confusion_matrix
 from sklearn.model_selection import cross_validate
+from sklearn.base import BaseEstimator,TransformerMixin
 from itertools import tee
 
 
@@ -48,9 +52,9 @@ def svcScore(clf,X,y_truth):
 
 #perform a grid-search 10-fold cv on the fusion hyperparameter 
 #i.e. number of adjacent epochs to be considered to have reliable
-def neighbourEpochSelection(data_dir,start=2,stop=14,max_rec=None,max_ep=None,verb=False):
+def neighbourEpochSelection(data_dir,start=2,stop=14,max_rec=None,max_ep=None,tol=1e-3,max_iter=-1,verb=False):
 
-    model=SVC(kernel="linear")
+    model=SVC(kernel="linear",tol=tol,max_iter=max_iter)
     fuse=start
 
     scores=[]
@@ -102,21 +106,9 @@ def leaveOneOutSubj(data_dir,fuse=0,max_rec=None,max_ep=None,verb=False):
         yield train,test
         n+=l
 
-def looScores(dpoints,loo_it,verb=False):
-
-    scores=dict()
-    model=SVC(kernel="linear")
-    feat_set=[
-            ('chest',),
-            ('wrist',),
-            ('hrv',),
-            ('hrv','chest'),
-            ('hrv','wrist')
-    ]
-    
-    for f in feat_set:
+#f: feature type
+def evaluatePerformance(model,dpoints,f,it,verb=False):
         X,y=svcDataset( dpoints, f )
-        loo_it,it=tee(loo_it)
         if verb:
             print("Scoring classification for feature set: {0}".format( f ))
 
@@ -128,7 +120,42 @@ def looScores(dpoints,loo_it,verb=False):
                 "sp":( np.mean(cv_res['test_sp']),np.std(cv_res['test_sp']) ),
                 "se":( np.mean(cv_res['test_se']),np.std(cv_res['test_se']) )
             }
-        
+        return score
+
+#log transformer to log how many components were removed from dimensionality reduction in a pipeline
+class DimensionalityLogger(BaseEstimator, TransformerMixin):
+
+    def transform(self, X):
+        print("Number of features {0}".format(X.shape[1]) )
+        return X
+
+    def fit(self, X, y=None, **fit_params):
+        return self
+
+def looScores(dpoints,loo_it,tol=1e-3,max_iter=-1,verb=False):
+
+    scores=dict()
+    model=SVC(kernel="linear",tol=tol,max_iter=max_iter)
+    feat_set=[
+            ('chest',),
+            ('wrist',),
+            ('hrv',),
+            ('hrv','chest'),
+            ('hrv','wrist')
+    ]
+    
+    for f in feat_set:
+        loo_it,it=tee(loo_it)
+        score=evaluatePerformance( model,dpoints,f,it,verb )
         scores[f]=score
-        
+    
+    #performing PCA to reduce dimensionality on the best feature set (according to mean specificity)
+    #keeping components that accumulate the 99% of variance in data
+    _best=max(scores.items(),key=lambda item: item[1]["sp"][0])[0]
+    pipe=make_pipeline(StandardScaler(),PCA(n_components=0.98),\
+            DimensionalityLogger(),SVC(kernel="linear",tol=tol,max_iter=max_iter),verbose=True)
+    
+    score=evaluatePerformance( pipe,dpoints,_best,loo_it,verb )
+    scores[tuple([ i for i in _best]+["pca"]) ]=score
+
     return scores
